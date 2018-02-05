@@ -1,0 +1,11 @@
+# Editor files
+.idea
+.settings
+.classpath
+.project
+*.iml
+
+#
+target
+dependency-reduced-pom.xml
+*.log
