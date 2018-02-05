@@ -6,7 +6,7 @@
 	<version>0.2-SNAPSHOT</version>
 
 	<properties>
-		<app.mainclass>ysaak.screenchanger.App</app.mainclass>
+		<app.mainclass>ysaak.wallswitcher.App</app.mainclass>
 		<jdk.version>1.8</jdk.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
