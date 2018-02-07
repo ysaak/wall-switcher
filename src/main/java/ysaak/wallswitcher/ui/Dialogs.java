@@ -10,7 +10,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Stage;
 import ysaak.wallswitcher.services.config.Config;
-import ysaak.wallswitcher.services.i18n.I18n;
+import ysaak.wallswitcher.ui.i18n.I18n;
 
 import java.io.File;
 import java.io.PrintWriter;

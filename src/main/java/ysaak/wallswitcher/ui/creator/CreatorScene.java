@@ -23,7 +23,7 @@ import ysaak.wallswitcher.event.SetWallpaperEvent;
 import ysaak.wallswitcher.ui.screenidentifer.ScreenIdentifierView;
 import ysaak.wallswitcher.services.ProfileUtils;
 import ysaak.wallswitcher.services.eventbus.EventBus;
-import ysaak.wallswitcher.services.i18n.I18n;
+import ysaak.wallswitcher.ui.i18n.I18n;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;

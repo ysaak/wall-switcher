@@ -1,4 +1,4 @@
-package ysaak.wallswitcher.services.i18n;
+package ysaak.wallswitcher.ui.i18n;
 
 import java.io.IOException;
 import java.io.InputStream;

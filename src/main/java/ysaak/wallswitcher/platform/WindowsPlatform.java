@@ -50,7 +50,7 @@ public final class WindowsPlatform implements IPlatform {
 
 	@Override
 	public Path getApplicationDirectory() {
-		return Paths.get(System.getProperty("user.home"), ".ysk-screen");
+		return Paths.get(System.getProperty("user.home"), ".ysk-profile");
 	}
 
 	@Override

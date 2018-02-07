@@ -11,7 +11,7 @@ import ysaak.wallswitcher.event.SetWallpaperEvent;
 import ysaak.wallswitcher.event.ShowWallpaperEvent;
 import ysaak.wallswitcher.services.ProfileUtils;
 import ysaak.wallswitcher.services.eventbus.EventBus;
-import ysaak.wallswitcher.services.i18n.I18n;
+import ysaak.wallswitcher.ui.i18n.I18n;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -37,8 +37,6 @@ public class AppMenu {
         availableProfiles.addListener((ListChangeListener<String>) c -> rebuildShowMenu());
 
         popup = new PopupMenu();
-
-        popup.add(new BasicEventMenuItem("tray.showProfileId", BasicEvent.Action.SHOW_CURRENT_PROFILE));
         popup.add(new BasicEventMenuItem("tray.refresh", BasicEvent.Action.REFRESH));
 
         popup.addSeparator();

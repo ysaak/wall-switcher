@@ -1,4 +1,4 @@
-package ysaak.wallswitcher.services.i18n;
+package ysaak.wallswitcher.ui.i18n;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

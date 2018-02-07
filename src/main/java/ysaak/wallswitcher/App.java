@@ -2,31 +2,26 @@ package ysaak.wallswitcher;
 
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
-import javafx.collections.ListChangeListener.Change;
-import javafx.collections.ObservableList;
+import javafx.concurrent.Service;
+import javafx.concurrent.Task;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.TextField;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ysaak.wallswitcher.services.WallpaperManager;
+import ysaak.wallswitcher.data.notification.NotificationType;
+import ysaak.wallswitcher.data.notification.TrayNotification;
+import ysaak.wallswitcher.event.*;
+import ysaak.wallswitcher.exception.ServiceInitException;
+import ysaak.wallswitcher.services.Services;
+import ysaak.wallswitcher.services.eventbus.EventBus;
+import ysaak.wallswitcher.services.eventbus.Subscribe;
+import ysaak.wallswitcher.task.ChangeWallpaperTask;
+import ysaak.wallswitcher.task.SetWallpaperTask;
+import ysaak.wallswitcher.task.ShowWallpaperTask;
 import ysaak.wallswitcher.ui.AppMenu;
 import ysaak.wallswitcher.ui.Dialogs;
 import ysaak.wallswitcher.ui.creator.CreatorScene;
-import ysaak.wallswitcher.data.ScreenDto;
-import ysaak.wallswitcher.event.BasicEvent;
-import ysaak.wallswitcher.event.SetWallpaperEvent;
-import ysaak.wallswitcher.event.ShowWallpaperEvent;
-import ysaak.wallswitcher.exception.NoDataFoundException;
-import ysaak.wallswitcher.exception.SetWallpaperException;
-import ysaak.wallswitcher.services.ProfileUtils;
-import ysaak.wallswitcher.services.i18n.I18n;
-import ysaak.wallswitcher.services.ScreenUtils;
-import ysaak.wallswitcher.services.eventbus.EventBus;
-import ysaak.wallswitcher.services.eventbus.Subscribe;
+import ysaak.wallswitcher.ui.notification.NotificationEngine;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -36,33 +31,20 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 public class App extends javafx.application.Application {
     private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
 
     private static final String ICON_IMAGE = "/img/picture.png";
-    private static final int REFRESH_DELAY = 2000;
-
-    private WallpaperManager wallpaperManager;
 
     private static Stage mainStage;
+
 
     private SystemTray tray = null;
     private TrayIcon trayIcon = null;
 
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-    private final transient Object lock = new Object();
-    private ScheduledFuture<?> future;
-    private transient String currentConfig = "";
-
     public static Path getAppDirectory() {
-        return Paths.get(System.getProperty("user.home"), ".ysk-screen");
+        return Paths.get(System.getProperty("user.home"), ".ysk-profile");
     }
 
     public static void main(final String[] args) {
@@ -70,36 +52,38 @@ public class App extends javafx.application.Application {
     }
 
     @Override
-    public void init() throws Exception {
+    public void init() {
         if (Files.notExists(getAppDirectory())) {
             try {
                 Files.createDirectories(getAppDirectory());
-            } catch (final IOException e) {
+            }
+            catch (final IOException e) {
                 LOGGER.error("Cannot create application directory", e);
             }
         }
-
-        EventBus.register(this);
-
-        wallpaperManager = new WallpaperManager();
     }
 
     @Override
-    public void start(final Stage primaryStage) throws Exception {
+    public void start(final Stage primaryStage) {
         mainStage = primaryStage;
-        mainStage.setTitle("ScreenChanger");
+        mainStage.setTitle("Wall-switcher");
 
         Dialogs.setMainStage(mainStage);
-        // updateDisplay(true);
-        updateTaskStart();
-
-        Screen.getScreens().addListener((final Change<? extends Screen> c) -> updateTaskStart());
 
         // Instructs the javafx system not to exit implicitly when the last application window is shut.
         Platform.setImplicitExit(false);
 
         // sets up the tray icon (using awt code run on the swing thread).
         javax.swing.SwingUtilities.invokeLater(this::addAppToTray);
+
+        try {
+            Services.getWallpaperService().init();
+            Services.getProfileService().init();
+        }
+        catch (ServiceInitException e) {
+            Dialogs.error("Error while starting application", e);
+            exit(-1);
+        }
     }
 
     /**
@@ -143,15 +127,16 @@ public class App extends javafx.application.Application {
                 }
             });
 
-            menu.defaultProfileAvailableProperty().bind(wallpaperManager.defaultProfileAvailableProperty());
-            Bindings.bindContent(menu.getAvailableProfiles(), wallpaperManager.getAvailableProfiles());
+            menu.defaultProfileAvailableProperty().bind(Services.getWallpaperService().defaultProfileAvailableProperty());
+            Bindings.bindContent(menu.getAvailableProfiles(), Services.getWallpaperService().getAvailableProfiles());
 
             trayIcon.setPopupMenu(menu.getPopup());
             // add the application tray icon to the system tray.
             tray.add(trayIcon);
             frame.setResizable(false);
             frame.setVisible(true);
-        } catch (java.awt.AWTException | IOException e) {
+        }
+        catch (java.awt.AWTException | IOException e) {
             LOGGER.error("Unable to init system tray", e);
             exit(-1);
         }
@@ -159,7 +144,7 @@ public class App extends javafx.application.Application {
 
     private void showCreator() {
         CreatorScene editor = new CreatorScene();
-        editor.setScreensList(ScreenUtils.toScreenDto(Screen.getScreens()));
+        editor.setScreensList(Services.getProfileService().getCurrentProfile().getScreenList());
         Scene scene = new Scene(editor.getPane());
 
         scene.getStylesheets().add(App.class.getResource("/theme.css").toExternalForm());
@@ -184,17 +169,12 @@ public class App extends javafx.application.Application {
                 break;
 
             case REFRESH:
-                updateDisplay(true);
-                break;
-
-            case SHOW_CURRENT_PROFILE:
-                Platform.runLater(this::showConfigurationId);
+                executeTask(new ChangeWallpaperTask(null));
                 break;
 
             case OPEN_CREATOR:
                 Platform.runLater(this::showCreator);
                 break;
-
 
             default:
                 LOGGER.warn("No action defined for code: " + event.getAction());
@@ -209,17 +189,7 @@ public class App extends javafx.application.Application {
      */
     @Subscribe
     private void handleShowWallpaperEvent(ShowWallpaperEvent event) {
-        final Optional<Path> file = wallpaperManager.getWallpaperPath(event.getProfileId());
-
-        file.ifPresent((data) -> {
-            final Desktop dt = Desktop.getDesktop();
-            try {
-                dt.open(data.toFile());
-            } catch (final Exception e) {
-                LOGGER.error("Error while opening image " + data, e);
-                Dialogs.error(I18n.get("error.wallpaperOpen"), e);
-            }
-        });
+        executeTask(new ShowWallpaperTask(event.getProfileId()));
     }
 
     /**
@@ -229,79 +199,37 @@ public class App extends javafx.application.Application {
      */
     @Subscribe
     private void handleSetWallpaperEvent(SetWallpaperEvent event) {
-
-        final String profileId = ProfileUtils.CURRENT_PROFILE.equals(event.getProfileId())
-                ? currentConfig : event.getProfileId();
-
-        try {
-            wallpaperManager.storeWallpaper(event.getWallpaperFile().toPath(), profileId);
-            updateDisplay(true);
-        }
-        catch (final Exception e) {
-            Dialogs.error("Error while storing default wallpaper", e);
-        }
+        executeTask(new SetWallpaperTask(event.getProfileId(), event.getWallpaperFile()));
     }
 
-    /**
-     * Shows the current configuration ID
-     */
-    private void showConfigurationId() {
-        final Alert alert = new Alert(AlertType.INFORMATION);
-        alert.setTitle(I18n.get("profileDialog.title"));
-        alert.setHeaderText(I18n.get("profileDialog.header"));
-
-        final TextField idField = new TextField();
-        idField.setText(currentConfig);
-        idField.setEditable(false);
-        idField.getStyleClass().add("copyable-label");
-
-        alert.getDialogPane().setContent(idField);
-        alert.getDialogPane().getStylesheets().add(getClass().getResource("/copyable-text.css").toExternalForm());
-        alert.showAndWait();
-    }
-
-    /**
-     * Update the wallpaper according to calculated profile. The update is canceled if the profile hasn't changed.
-     *
-     * @param force Force the update of the wallpaper
-     */
-    private void updateDisplay(final boolean force) {
-        final ObservableList<Screen> fxScreens = Screen.getScreens();
-        final List<ScreenDto> screens = ScreenUtils.toScreenDto(fxScreens);
-        final String configId = ScreenUtils.calculateProfileId(screens);
-
-        if (currentConfig.equals(configId) && !force) {
-            // Same config, stop
-            return;
-        }
-
-        currentConfig = configId;
-
-        try {
-            wallpaperManager.showWallpaperForProfile(configId);
-        } catch (final NoDataFoundException | SetWallpaperException e) {
-            LOGGER.warn(e.getMessage(), e);
-
-            if (trayIcon != null) {
-                trayIcon.displayMessage("Error", e.getMessage(), TrayIcon.MessageType.ERROR);
-            }
-        }
-    }
-
-    /**
-     * Starts the timer of the wallpaper update.
-     *
-     * The update is delayed since the list is updated multiple times
-     */
-    private void updateTaskStart() {
-        synchronized (lock) {
-            if (future == null || future.isDone()) {
-                future = scheduler.schedule(() -> updateDisplay(false), REFRESH_DELAY, TimeUnit.MILLISECONDS);
-            }
+    @Subscribe
+    private void handleNewProfileDetected(NewProfileDetectedEvent event) {
+        if (event.getProfile() != null) {
+            LOGGER.info("New profile detected {}", event.getProfile().getId());
+            executeTask(new ChangeWallpaperTask(event.getProfile().getId()));
         }
     }
 
     public static Stage getMainStage() {
         return mainStage;
+    }
+
+    private <V> void executeTask(final Task<V> task) {
+        final Service<V> service = new Service<V>() {
+            @Override
+            protected Task<V> createTask() {
+                return task;
+            }
+        };
+
+        service.setOnRunning(evt -> LOGGER.debug("Task {} starting", task.getTitle()));
+        service.setOnSucceeded(evt -> LOGGER.debug("Task {} completed", task.getTitle()));
+
+        service.setOnFailed(evt -> {
+            LOGGER.error("Task {} has failed", service.getException());
+            //handleNotificationEvent(new NotificationEvent(NotificationEvent.NotificationType.ERROR, "CODE TO CHANGE"));
+        });
+
+        service.start();
     }
 }

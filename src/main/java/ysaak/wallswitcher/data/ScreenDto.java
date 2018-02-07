@@ -3,7 +3,7 @@ package ysaak.wallswitcher.data;
 import javafx.stage.Screen;
 
 public class ScreenDto implements Comparable<ScreenDto> {
-	private int id;
+	private final int id;
 
 	private final double x;
 	private final double y;
@@ -16,13 +16,6 @@ public class ScreenDto implements Comparable<ScreenDto> {
 		this.y = y;
 		this.width = width;
 		this.height = height;
-	}
-	
-	public ScreenDto(int id, Screen screen) {
-		this(id, screen.getBounds().getMinX(),
-				screen.getBounds().getMinY(), 
-				screen.getBounds().getWidth(), 
-				screen.getBounds().getHeight());
 	}
 
 	public int getId() {

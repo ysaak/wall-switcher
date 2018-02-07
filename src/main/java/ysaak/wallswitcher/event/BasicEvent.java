@@ -17,7 +17,6 @@ public class BasicEvent implements ActionEvent {
 
     public enum Action {
         EXIT,
-        SHOW_CURRENT_PROFILE,
         REFRESH,
         OPEN_CREATOR
     }
